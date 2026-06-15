@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#ff4400">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Moto Racer X - Ivan Martinez</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-tap-highlight-color:transparent}
+    body{overflow:hidden;background:#000;font-family:'Segoe UI',system-ui,sans-serif;touch-action:none}
+    canvas{display:block;position:fixed;top:0;left:0;width:100%;height:100%}
+    
+    /* HUD - Solo información, sin botones */
+    #hud{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+    
+    /* Velocímetro */
+    #speed-panel{position:fixed;bottom:100px;left:12px;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);border-radius:18px;padding:6px 14px;border-left:3px solid #ff4400}
+    #speed-val{font-size:38px;color:#ff4400;font-weight:900;font-family:monospace;line-height:1}
+    #speed-unit{font-size:9px;color:#fff;opacity:0.7}
+    #rpm-bar{width:100%;height:3px;background:#222;margin-top:4px;border-radius:3px}
+    #rpm-fill{height:100%;width:0%;background:linear-gradient(90deg,#00ff44,#ffcc00,#ff3300);border-radius:3px}
+    
+    /* Vidas */
+    #lives-panel{position:fixed;top:12px;left:12px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);border-radius:25px;padding:5px 12px;display:flex;gap:5px;font-size:18px}
+    .heart{color:#ff3366}
+    .heart.lost{opacity:0.25}
+    
+    /* Monedas y Score */
+    #coin-panel{position:fixed;top:12px;right:12px;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);border-radius:25px;padding:5px 14px;display:flex;align-items:center;gap:5px}
+    #coin-count{color:#ffcc00;font-size:16px;font-weight:bold}
+    #score-panel{position:fixed;top:52px;right:12px;background:rgba(0,0,0,0.4);border-radius:12px;padding:3px 10px;font-size:10px;color:#fff}
+    #weather-icon{position:fixed;top:12px;right:90px;font-size:20px;background:rgba(0,0,0,0.4);border-radius:50%;padding:4px 8px}
+    #combo-pop{position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:900;color:#ff8800;text-shadow:0 0 10px #ff8800;pointer-events:none;opacity:0;transition:opacity 0.2s;z-index:15;white-space:nowrap}
+    
+    /* ZONAS DE CONTROL INVISIBLES - Como en la imagen */
+    .zone-left{position:fixed;left:0;top:0;width:35%;height:100%;z-index:20;pointer-events:auto;background:transparent}
+    .zone-right{position:fixed;right:0;top:0;width:35%;height:100%;z-index:20;pointer-events:auto;background:transparent}
+    .zone-gas{position:fixed;bottom:0;left:0;right:0;height:30%;z-index:20;pointer-events:auto;background:transparent}
+    
+    /* Indicadores de zona (opcionales, se ven solo si quieres) */
+    .zone-left::after{content:'';position:absolute;left:20px;top:50%;transform:translateY(-50%);width:40px;height:80px;border-radius:20px;background:rgba(255,68,0,0.15);border-left:2px solid rgba(255,68,0,0.5);pointer-events:none}
+    .zone-right::after{content:'';position:absolute;right:20px;top:50%;transform:translateY(-50%);width:40px;height:80px;border-radius:20px;background:rgba(255,68,0,0.15);border-right:2px solid rgba(255,68,0,0.5);pointer-events:none}
+    .zone-gas::after{content:'⬆️';position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:24px;color:rgba(255,255,255,0.3);pointer-events:none;animation:pulse 1.5s ease-in-out infinite}
+    
+    @keyframes pulse{0%,100%{opacity:0.3}50%{opacity:0.8}}
+    
+    .pause-btn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);border:1px solid #ff4400;color:#fff;font-size:11px;padding:4px 20px;border-radius:25px;cursor:pointer;z-index:30;pointer-events:auto}
+    
+    /* Menú */
+    .menu-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center,#0a0a2e,#050510);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:100;transition:all 0.4s}
+    .menu-overlay.hidden{opacity:0;pointer-events:none}
+    .menu-title{font-size:40px;font-weight:900;color:#ff4400;text-shadow:0 0 30px #ff4400;margin-bottom:5px;letter-spacing:3px}
+    .menu-logo{font-size:70px;margin-bottom:10px;animation:float 2s ease-in-out infinite}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    .menu-creator{font-size:14px;color:#fff;margin-bottom:30px;background:rgba(0,0,0,0.5);padding:5px 20px;border-radius:30px}
+    .menu-creator span{color:#ff4400;font-weight:bold}
+    .menu-instruction{color:#fff;opacity:.6;font-size:12px;margin-bottom:25px}
+    .menu-btn{background:linear-gradient(45deg,#ff4400,#ff8800);border:none;color:#fff;font-size:18px;padding:12px 40px;border-radius:50px;margin:8px;cursor:pointer;font-weight:bold;width:220px}
+    .menu-btn:active{transform:scale(0.96)}
+    .menu-btn.secondary{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2)}
+    
+    #gameover-panel,#pause-panel{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.96);backdrop-filter:blur(12px);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:90;opacity:0;pointer-events:none;transition:opacity 0.3s}
+    #gameover-panel.visible,#pause-panel.visible{opacity:1;pointer-events:auto}
+    
+    .damage-flash{animation:damageFlash 0.2s 2}
+    @keyframes damageFlash{0%,100%{background:transparent}50%{background:rgba(255,0,0,0.3)}}
+    .coin-pop{position:fixed;animation:coinFloat 1s ease-out forwards;pointer-events:none;z-index:200;font-size:18px;font-weight:bold}
+    @keyframes coinFloat{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-70px)}}
+  </style>
+</head>
+<body>
+
+<div id="main-menu" class="menu-overlay">
+  <div class="menu-logo">🏍️🔥</div>
+  <div class="menu-title">MOTO RACER X</div>
+  <div class="menu-creator">🎮 Desarrollado por <span>Ivan Martinez</span> 🎮</div>
+  <div class="menu-instruction">← Toca izquierda → para girar | Toca abajo para acelerar</div>
+  <button class="menu-btn" id="start-btn">🚀 INICIAR CARRERA</button>
+  <button class="menu-btn secondary" id="stats-btn">🏆 ESTADÍSTICAS</button>
+</div>
+
+<div id="gameover-panel">
+  <div style="font-size:60px">💀</div>
+  <div style="font-size:32px;font-weight:900;color:#ff4400;margin:10px 0">GAME OVER</div>
+  <div style="margin:25px;text-align:center;color:#fff;line-height:1.8;font-size:13px">
+    🏆 Puntaje: <span id="go-score">0</span><br>
+    📍 Distancia: <span id="go-dist">0</span>m<br>
+    💰 Monedas: <span id="go-coins">0</span><br>
+    ⚡ Récord: <span id="go-record">0</span>
+  </div>
+  <button class="menu-btn" id="restart-btn">🔄 REINTENTAR</button>
+  <button class="menu-btn secondary" id="menu-back">🏠 MENÚ</button>
+</div>
+
+<div id="pause-panel">
+  <div style="font-size:60px">⏸️</div>
+  <div style="font-size:32px;font-weight:900;color:#fff;margin:15px 0">PAUSA</div>
+  <button class="menu-btn" id="resume-btn">▶️ CONTINUAR</button>
+</div>
+
+<div id="hud">
+  <div id="speed-panel">
+    <div id="speed-val">0</div>
+    <div id="speed-unit">KM/H</div>
+    <div id="rpm-bar"><div id="rpm-fill"></div></div>
+  </div>
+  <div id="lives-panel">❤️❤️❤️</div>
+  <div id="coin-panel"><span>💰</span><span id="coin-count">0</span></div>
+  <div id="score-panel">🏆 <span id="score-val">0</span></div>
+  <div id="weather-icon">☀️</div>
+  <div id="combo-pop"></div>
+</div>
+
+<!-- ZONAS DE CONTROL INVISIBLES - Como en la imagen que mandaste -->
+<div class="zone-left" id="zone-left"></div>
+<div class="zone-right" id="zone-right"></div>
+<div class="zone-gas" id="zone-gas"></div>
+
+<button class="pause-btn" id="pause-main">⏸ PAUSA</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const CONFIG={
+  roadWidth:7.2,
+  maxSpeed:165,
+  baseAccel:0.48,
+  nitroMult:1.6,
+  nitroDrain:0.015,
+  nitroRegen:0.023,
+  turnSpeed:0.09,
+  aiSpeed:78,
+  numCars:7,
+  numCoins:20,
+  roadLeft:-3.3,
+  roadRight:3.3,
+  lanes:[-2.3, 0, 2.3]
+};
+
+let scene,camera,renderer,clock,bike,bikeLight;
+let roadLines=[],cars=[],coins=[],trees=[],guardrails=[];
+let state={
+  running:false,paused:false,speed:48,nitro:0.8,
+  bikeX:0,bikeXVel:0,
+  score:0,coins:0,lives:3,
+  distance:0,maxSpeed:0,combo:1,invincible:0
+};
+let keys={left:false,right:false,gas:true,brake:false,nitro:false};
+let exhaustParticles=[];
+
+function init(){
+  clock=new THREE.Clock();
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0a1530);
+  scene.fog=new THREE.FogExp2(0x0a1530,0.006);
+  
+  camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,500);
+  camera.position.set(0,2.35,5.1);
+  
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.shadowMap.enabled=true;
+  document.body.appendChild(renderer.domElement);
+  
+  const ambient=new THREE.AmbientLight(0x304070,0.68);
+  scene.add(ambient);
+  const sun=new THREE.DirectionalLight(0xffeedd,1.25);
+  sun.position.set(6,12,9);
+  sun.castShadow=true;
+  scene.add(sun);
+  
+  buildRoad();
+  buildGuardrails();
+  buildBike();
+  buildTraffic();
+  buildCoins();
+  buildEnvironment();
+  
+  animate();
+}
+
+function buildRoad(){
+  const asphaltMat=new THREE.MeshStandardMaterial({color:0x2a2a2a,roughness:0.65});
+  for(let i=-50;i<50;i++){
+    const seg=new THREE.Mesh(new THREE.PlaneGeometry(CONFIG.roadWidth,2.8),asphaltMat);
+    seg.rotation.x=-Math.PI/2;seg.position.set(0,-0.05,i*2.8);seg.receiveShadow=true;
+    scene.add(seg);
+  }
+  const lineMat=new THREE.MeshStandardMaterial({color:0xffffee});
+  for(let i=-50;i<50;i++){
+    const center=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.9),lineMat);
+    center.position.set(0,-0.02,i*2.8);scene.add(center);roadLines.push(center);
+    const left=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.9),lineMat);
+    left.position.set(-2.5,-0.02,i*2.8);scene.add(left);roadLines.push(left);
+    const right=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.05,0.9),lineMat);
+    right.position.set(2.5,-0.02,i*2.8);scene.add(right);roadLines.push(right);
+  }
+}
+
+function buildGuardrails(){
+  const railMat=new THREE.MeshStandardMaterial({color:0xbbaa88,metalness:0.7});
+  const postMat=new THREE.MeshStandardMaterial({color:0x777777});
+  for(let i=-50;i<50;i++){
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.65,0.12),postMat);
+    post.position.set(-CONFIG.roadWidth/2-0.22,0.28,i*2.8);post.castShadow=true;scene.add(post);
+    const rail1=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.1,2.8),railMat);
+    rail1.position.set(-CONFIG.roadWidth/2-0.17,0.38,i*2.8);rail1.castShadow=true;scene.add(rail1);
+    const rail2=rail1.clone();rail2.position.y=0.58;scene.add(rail2);
+    const postR=post.clone();postR.position.set(CONFIG.roadWidth/2+0.22,0.28,i*2.8);scene.add(postR);
+    const rail1R=rail1.clone();rail1R.position.set(CONFIG.roadWidth/2+0.17,0.38,i*2.8);scene.add(rail1R);
+    const rail2R=rail2.clone();rail2R.position.set(CONFIG.roadWidth/2+0.17,0.58,i*2.8);scene.add(rail2R);
+  }
+}
+
+function buildBike(){
+  bike=new THREE.Group();
+  const bodyMat=new THREE.MeshStandardMaterial({color:0xff4400,metalness:0.85});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.66,0.3,1.72),bodyMat);
+  body.position.y=0.21;body.castShadow=true;bike.add(body);
+  const tank=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.26,0.7,12),bodyMat);
+  tank.rotation.x=0.18;tank.position.set(0,0.41,0.44);tank.castShadow=true;bike.add(tank);
+  const seat=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.1,0.68),new THREE.MeshStandardMaterial({color:0x222222}));
+  seat.position.set(0,0.43,-0.4);seat.castShadow=true;bike.add(seat);
+  const wheelMat=new THREE.MeshStandardMaterial({color:0x111111});
+  const wheelGeo=new THREE.CylinderGeometry(0.32,0.32,0.48,16);
+  [-0.44,0.44].forEach(x=>{
+    const fw=new THREE.Mesh(wheelGeo,wheelMat);fw.rotation.z=Math.PI/2;fw.position.set(x,0.13,0.82);fw.castShadow=true;bike.add(fw);
+    const rw=new THREE.Mesh(wheelGeo,wheelMat);rw.rotation.z=Math.PI/2;rw.position.set(x,0.13,-0.86);rw.castShadow=true;bike.add(rw);
+  });
+  const headlightMat=new THREE.MeshStandardMaterial({color:0xffeedd,emissive:0xffaa66,emissiveIntensity:1.0});
+  const headlight=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10),headlightMat);
+  headlight.position.set(0,0.33,0.95);bike.add(headlight);
+  bikeLight=new THREE.PointLight(0xffaa66,1.5,18);
+  bikeLight.position.set(0,0.35,0.95);
+  bike.add(bikeLight);
+  scene.add(bike);
+}
+
+function buildTraffic(){
+  const colors=[0xcc4444,0x4488cc,0x44aa55,0xddcc33,0xaa55cc];
+  for(let i=0;i<CONFIG.numCars;i++){
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.42,1.58),new THREE.MeshStandardMaterial({color:colors[i%5],metalness:0.55}));
+    body.castShadow=true;g.add(body);
+    const roof=new THREE.Mesh(new THREE.BoxGeometry(0.64,0.29,0.98),new THREE.MeshStandardMaterial({color:0x2a2a2a}));
+    roof.position.y=0.37;g.add(roof);
+    const wheelMat=new THREE.MeshStandardMaterial({color:0x111111});
+    const positions=[[-0.55,0.1,-0.68],[0.55,0.1,-0.68],[-0.55,0.1,0.68],[0.55,0.1,0.68]];
+    positions.forEach(p=>{
+      const w=new THREE.Mesh(new THREE.SphereGeometry(0.18,10,10),wheelMat);
+      w.position.set(p[0],p[1],p[2]);w.scale.set(0.8,0.5,0.8);g.add(w);
+    });
+    const lane=CONFIG.lanes[Math.floor(Math.random()*3)];
+    g.position.set(lane,0.19,-38-i*26);
+    scene.add(g);
+    cars.push({obj:g,speed:CONFIG.aiSpeed+Math.random()*32,lane:lane});
+  }
+}
+
+function buildCoins(){
+  for(let i=0;i<CONFIG.numCoins;i++){
+    const coinGroup=new THREE.Group();
+    const coin=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.04,10),new THREE.MeshStandardMaterial({color:0xffcc00,metalness:0.8,emissive:0xff8800,emissiveIntensity:0.4}));
+    coin.rotation.x=Math.PI/2;coinGroup.add(coin);
+    const lane=CONFIG.lanes[Math.floor(Math.random()*3)]+(Math.random()-0.5)*0.7;
+    coinGroup.position.set(lane,0.26,-55-i*24);
+    coinGroup.userData={value:15};
+    scene.add(coinGroup);
+    coins.push(coinGroup);
+  }
+}
+
+function buildEnvironment(){
+  const trunkMat=new THREE.MeshStandardMaterial({color:0x4a2a10});
+  const leafMat=new THREE.MeshStandardMaterial({color:0x2a6a2a});
+  for(let i=0;i<50;i++){
+    const tree=new THREE.Group();
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.2,0.95,5),trunkMat);
+    trunk.castShadow=true;tree.add(trunk);
+    const leaf=new THREE.Mesh(new THREE.ConeGeometry(0.45,0.9,5),leafMat);
+    leaf.position.y=1.05;leaf.castShadow=true;tree.add(leaf);
+    const side=(Math.random()>.5?1:-1)*(CONFIG.roadWidth/2+1.6+Math.random()*2);
+    tree.position.set(side,0.35,-18-i*14);
+    tree.scale.setScalar(0.65+Math.random()*0.4);
+    scene.add(tree);
+    trees.push(tree);
+  }
+}
+
+function updatePhysics(dt){
+  if(!state.running||state.paused)return;
+  const useNitro=keys.nitro&&state.nitro>0.05;
+  if(keys.gas){
+    let accel=CONFIG.baseAccel;
+    if(useNitro){accel*=CONFIG.nitroMult;state.nitro-=CONFIG.nitroDrain;bikeLight.intensity=2.5;}
+    else bikeLight.intensity=1.2;
+    state.speed=Math.min(CONFIG.maxSpeed,state.speed+accel);
+  }else{
+    state.speed=Math.max(32,state.speed*(1-dt*0.28));
+    bikeLight.intensity=1.0;
+  }
+  if(keys.brake)state.speed=Math.max(22,state.speed-CONFIG.baseAccel*1.3);
+  if(!useNitro)state.nitro=Math.min(1,state.nitro+CONFIG.nitroRegen*dt*60);
+  
+  let turnInput=0;
+  if(keys.left)turnInput=-1;
+  if(keys.right)turnInput=1;
+  const speedFactor=Math.max(0.5,1-(state.speed/CONFIG.maxSpeed)*0.4);
+  const turnPower=CONFIG.turnSpeed*speedFactor;
+  state.bikeXVel+=turnInput*turnPower*dt*60;
+  state.bikeXVel*=0.96;
+  let newX=state.bikeX+state.bikeXVel*dt*60;
+  newX=Math.max(CONFIG.roadLeft,Math.min(CONFIG.roadRight,newX));
+  state.bikeX=newX;
+  
+  bike.position.x=state.bikeX;
+  bike.rotation.z=-state.bikeXVel*0.1;
+  camera.position.x+=(state.bikeX*0.3-camera.position.x)*0.12;
+  camera.position.z=4.95-(state.speed/CONFIG.maxSpeed)*0.85;
+  camera.lookAt(state.bikeX*0.4,0.45,-5.5);
+  
+  const scroll=state.speed*0.225*dt;
+  roadLines.forEach(l=>{l.position.z+=scroll;if(l.position.z>7)l.position.z-=250;});
+  trees.forEach(t=>{t.position.z+=scroll*0.82;if(t.position.z>22)t.position.z-=110;});
+  
+  cars.forEach(c=>{
+    c.obj.position.z+=(state.speed-c.speed)*dt*0.68+scroll*0.52;
+    if(c.obj.position.z>19){
+      c.obj.position.z=-60-Math.random()*40;
+      c.lane=CONFIG.lanes[Math.floor(Math.random()*3)];
+      c.obj.position.x=c.lane;
+    }
+    if(state.invincible<=0){
+      const dx=Math.abs(c.obj.position.x-state.bikeX);
+      const dz=Math.abs(c.obj.position.z+0.65);
+      if(dx<0.98&&dz<1.18){
+        state.speed*=0.58;
+        state.score=Math.max(0,state.score-120);
+        state.combo=1;
+        state.invincible=1.3;
+        state.lives--;
+        updateLives();
+        if(state.lives<=0)gameOver();
+        document.body.classList.add('damage-flash');
+        setTimeout(()=>document.body.classList.remove('damage-flash'),200);
+        c.obj.position.z+=3.5;
+      }
+    }
+  });
+  
+  coins.forEach(c=>{
+    c.position.z+=scroll;
+    c.rotation.y+=0.15;
+    if(c.position.z>17){
+      c.position.z=-95-Math.random()*60;
+      c.position.x=CONFIG.lanes[Math.floor(Math.random()*3)]+(Math.random()-0.5)*0.8;
+    }
+    const dx=Math.abs(c.position.x-state.bikeX);
+    const dz=Math.abs(c.position.z+0.32);
+    if(dx<0.78&&dz<0.88){
+      state.coins+=c.userData.value;
+      state.score+=50;
+      state.combo=Math.min(6,state.combo+0.2);
+      showFloatingText("+💰"+c.userData.value);
+      c.position.z=-105;
+    }
+  });
+  
+  const rpmPercent=Math.min(1,state.speed/CONFIG.maxSpeed);
+  document.getElementById('rpm-fill').style.width=(rpmPercent*100)+'%';
+  state.distance+=state.speed*dt;
+  state.score+=state.speed*dt*0.72*state.combo;
+  state.maxSpeed=Math.max(state.maxSpeed,state.speed);
+  if(state.invincible>0)state.invincible-=dt;
+  updateHUD();
+  spawnExhaust();
+}
+
+function updateLives(){
+  const hearts=document.getElementById('lives-panel');
+  hearts.innerHTML='';
+  for(let i=0;i<3;i++){hearts.innerHTML+=`<span class="heart ${i>=state.lives?'lost':''}">❤️</span>`;}
+}
+
+function showFloatingText(text){
+  const div=document.createElement('div');
+  div.textContent=text;
+  div.className='coin-pop';
+  div.style.left='50%';
+  div.style.transform='translateX(-50%)';
+  div.style.top=window.innerHeight/2+'px';
+  div.style.color='#ffcc00';
+  document.body.appendChild(div);
+  setTimeout(()=>div.remove(),700);
+}
+
+function updateHUD(){
+  document.getElementById('speed-val').textContent=Math.floor(state.speed);
+  document.getElementById('coin-count').textContent=Math.floor(state.coins);
+  document.getElementById('score-val').textContent=Math.floor(state.score);
+  const comboDiv=document.getElementById('combo-pop');
+  if(state.combo>1.15){
+    comboDiv.textContent=`🔥 COMBO x${state.combo.toFixed(1)} 🔥`;
+    comboDiv.style.opacity='0.9';
+    setTimeout(()=>comboDiv.style.opacity='0',250);
+  }
+}
+
+function spawnExhaust(){
+  if(!state.running||state.paused||state.speed<45)return;
+  const useNitro=keys.nitro&&state.nitro>0.05;
+  const p=new THREE.Mesh(new THREE.SphereGeometry(0.05,4),new THREE.MeshStandardMaterial({color:useNitro?0x00aaff:0xff7733,emissive:useNitro?0x0088ff:0xff4400}));
+  p.position.set(state.bikeX+(Math.random()-0.5)*0.35,0.12,-0.98);
+  scene.add(p);
+  exhaustParticles.push({mesh:p,life:1});
+}
+
+function updateExhaust(dt){
+  for(let i=exhaustParticles.length-1;i>=0;i--){
+    exhaustParticles[i].life-=dt*2.5;
+    exhaustParticles[i].mesh.material.opacity=exhaustParticles[i].life;
+    if(exhaustParticles[i].life<=0){scene.remove(exhaustParticles[i].mesh);exhaustParticles.splice(i,1);}
+  }
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),0.033);
+  updatePhysics(dt);
+  updateExhaust(dt);
+  renderer.render(scene,camera);
+}
+
+// CONTROLES INVISIBLES - Zonas táctiles
+function initControls(){
+  const leftZone=document.getElementById('zone-left');
+  const rightZone=document.getElementById('zone-right');
+  const gasZone=document.getElementById('zone-gas');
+  
+  leftZone.addEventListener('touchstart',(e)=>{e.preventDefault();keys.left=true;});
+  leftZone.addEventListener('touchend',(e)=>{e.preventDefault();keys.left=false;});
+  leftZone.addEventListener('mousedown',()=>keys.left=true);
+  leftZone.addEventListener('mouseup',()=>keys.left=false);
+  
+  rightZone.addEventListener('touchstart',(e)=>{e.preventDefault();keys.right=true;});
+  rightZone.addEventListener('touchend',(e)=>{e.preventDefault();keys.right=false;});
+  rightZone.addEventListener('mousedown',()=>keys.right=true);
+  rightZone.addEventListener('mouseup',()=>keys.right=false);
+  
+  gasZone.addEventListener('touchstart',(e)=>{e.preventDefault();keys.gas=true;});
+  gasZone.addEventListener('touchend',(e)=>{e.preventDefault();keys.gas=false;});
+  gasZone.addEventListener('mousedown',()=>keys.gas=true);
+  gasZone.addEventListener('mouseup',()=>keys.gas=false);
+  
+  // Teclado PC
+  window.addEventListener('keydown',(e)=>{
+    if(e.key==='ArrowLeft')keys.left=true;
+    if(e.key==='ArrowRight')keys.right=true;
+    if(e.key==='ArrowUp')keys.gas=true;
+    if(e.key==='ArrowDown')keys.brake=true;
+    if(e.key===' ')keys.nitro=true;
+    if(e.key==='p')togglePause();
+  });
+  window.addEventListener('keyup',(e)=>{
+    if(e.key==='ArrowLeft')keys.left=false;
+    if(e.key==='ArrowRight')keys.right=false;
+    if(e.key==='ArrowUp')keys.gas=false;
+    if(e.key==='ArrowDown')keys.brake=false;
+    if(e.key===' ')keys.nitro=false;
+  });
+  
+  document.getElementById('pause-main').addEventListener('click',togglePause);
+  document.getElementById('resume-btn').addEventListener('click',togglePause);
+}
+
+function togglePause(){
+  if(!state.running)return;
+  state.paused=!state.paused;
+  document.getElementById('pause-panel').classList.toggle('visible',state.paused);
+}
+
+function startGame(){
+  state={
+    running:true,paused:false,speed:48,nitro:0.8,bikeX:0,bikeXVel:0,
+    score:0,coins:0,lives:3,distance:0,maxSpeed:0,combo:1,invincible:0
+  };
+  bike.position.x=0;
+  keys.gas=true;
+  updateLives();
+  document.getElementById('main-menu').classList.add('hidden');
+  document.getElementById('gameover-panel').classList.remove('visible');
+  document.getElementById('pause-panel').classList.remove('visible');
+}
+
+function gameOver(){
+  state.running=false;
+  document.getElementById('go-score').textContent=Math.floor(state.score);
+  document.getElementById('go-dist').textContent=Math.floor(state.distance);
+  document.getElementById('go-coins').textContent=Math.floor(state.coins);
+  const best=localStorage.getItem('motoBest')||0;
+  const newBest=Math.max(state.score,best);
+  localStorage.setItem('motoBest',Math.floor(newBest));
+  localStorage.setItem('motoCoins',(+(localStorage.getItem('motoCoins')||0)+state.coins));
+  document.getElementById('go-record').textContent=Math.floor(newBest);
+  document.getElementById('gameover-panel').classList.add('visible');
+}
+
+function setupMenus(){
+  document.getElementById('start-btn').addEventListener('click',startGame);
+  document.getElementById('restart-btn').addEventListener('click',()=>{document.getElementById('gameover-panel').classList.remove('visible');startGame();});
+  document.getElementById('menu-back').addEventListener('click',()=>{document.getElementById('gameover-panel').classList.remove('visible');document.getElementById('main-menu').classList.remove('hidden');});
+  document.getElementById('stats-btn').addEventListener('click',()=>{
+    const best=localStorage.getItem('motoBest')||0;
+    const coins=localStorage.getItem('motoCoins')||0;
+    alert(`🏆 ESTADÍSTICAS\n\nMejor Puntaje: ${Math.floor(best)}\n💰 Monedas totales: ${Math.floor(coins)}`);
+  });
+}
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+window.addEventListener('load',()=>{
+  init();
+  initControls();
+  setupMenus();
+  document.getElementById('coin-count').textContent=localStorage.getItem('motoCoins')||0;
+});
+})();
+</script>
+</body>
+</html>
